@@ -9,37 +9,55 @@ using Debug = UnityEngine.Debug;
 
 public class TileManager : MonoBehaviour
 {
+    public Tuple<int, int> TileMapSize;
+
     public enum GridState
     {
         Path,
         Source,
         Wall,
         Dest,
-        
+
         Length
     }
-    
+
     public GridState mouseGridState;
     [SerializeField] GridState mDefaultGridState;
     [SerializeField] Tilemap mTilemap;
-    [SerializeField] Vector3Int mTileOffset = new Vector3Int(10, 10, 0); 
+    [SerializeField] Vector3Int mTileOffset;
     [SerializeField] List<Tile> tileList;
-    
+
+    private List<List<GridState>> mMap;
+
     // List index = (int)GridState 
     private List<int> mTileUsageLimitList;
     private List<int> mTileUsageCounter;
     private List<List<Vector3Int>> mTilePositionList;
-    
+
     void Start()
     {
+        TileMapSize = new Tuple<int, int>(20, 20);
+        mTileOffset = new Vector3Int(TileMapSize.Item1 / 2, TileMapSize.Item2 / 2, 0);
+        mouseGridState = mDefaultGridState;
+        mMap = new List<List<GridState>>();
+        for (int i = 0; i < TileMapSize.Item1; i++)
+        {
+            mMap.Add(new List<GridState>());
+            for (int j = 0; j < TileMapSize.Item2; j++)
+            {
+                mMap[i].Add(mDefaultGridState);
+            }
+        }
+
+        int tileCount = TileMapSize.Item1 * TileMapSize.Item2;
         mTileUsageLimitList = new List<int>()
         {
-            40, 1, 40, 1
+            tileCount, 1, tileCount, 1
         };
-        
+
         mDefaultGridState = GridState.Path;
-        
-        
+
+
         mTileUsageCounter = new List<int>();
         mTilePositionList = new List<List<Vector3Int>>();
         for (int i = 0; i < (int)GridState.Length; i++)
@@ -47,14 +65,23 @@ public class TileManager : MonoBehaviour
             mTileUsageCounter.Add(0);
             mTilePositionList.Add(new List<Vector3Int>());
         }
+
+        mTileUsageCounter[(int)mDefaultGridState] = tileCount;
+        for (int i = 0; i < TileMapSize.Item1; i++)
+        {
+            for (int j = 0; j < TileMapSize.Item2; j++)
+            {
+                mTilePositionList[(int)mDefaultGridState].Add(new Vector3Int(i, j, 0));
+            }
+        }
     }
-    
+
     void Update()
     {
         processInputGridState();
         processMouseInput();
     }
-    
+
 // TODO: on mouse 시에 임시로 타일이 변경되는 것처럼 보이는 기능
 
     private void processMouseInput()
@@ -62,30 +89,35 @@ public class TileManager : MonoBehaviour
         if (Input.GetMouseButtonDown(0))
         {
             Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            Vector3Int cellPos = mTilemap.WorldToCell(mouseWorldPos);
-            
-            setTile(applyCellPosOffset(cellPos), mouseGridState);
+            Vector3Int arrayCellPos = mTilemap.WorldToCell(mouseWorldPos);
+
+            setTile(arrayCellPos, mouseGridState);
         }
     }
 
-    private void setTile(Vector3Int arrayCellPos, GridState state)
+    private void setTile(Vector3Int cellPos, GridState newState)
     {
-        /// 1. 타일 limit 확인(yes -> 2)
-        /// 1-1. 초과시 이전 tilePosList를 통해 index:0 타일을 Path타일로 변경(list 정보도 수정)
-        /// 2. tile set 후 list에 추가
-
-        if (mTileUsageCounter[(int)state] >= mTileUsageLimitList[(int)state])
+        Tuple<int, int> arrayPos = getMapArrayPos(cellPos);
+        GridState nowGridState = mMap[arrayPos.Item1][arrayPos.Item2];
+        if (nowGridState == newState)
         {
-            setTile(mTilePositionList[(int)state][0], mDefaultGridState);
-            mTilePositionList[(int)state].RemoveAt(0);
-            mTileUsageCounter[(int)mDefaultGridState]--;
+            return;
         }
-        
-        mTileUsageCounter[(int)state]++;
-        mTilePositionList[(int)state].Add(arrayCellPos);
-        mTilemap.SetTile(arrayCellPos, tileList[(int)state]);
+
+        if (mTileUsageCounter[(int)newState] >= mTileUsageLimitList[(int)newState])
+        {
+            setTile(mTilePositionList[(int)newState][0], mDefaultGridState);
+        }
+
+        mTileUsageCounter[(int)nowGridState]--;
+        mTilePositionList[(int)nowGridState].Remove(cellPos);
+
+        mTileUsageCounter[(int)newState]++;
+        mTilePositionList[(int)newState].Add(cellPos);
+        mTilemap.SetTile(cellPos, tileList[(int)newState]);
+        mMap[arrayPos.Item1][arrayPos.Item2] = newState;
     }
-    
+
     private void processInputGridState()
     {
         if (Input.GetKeyDown(KeyCode.Alpha1))
@@ -106,9 +138,10 @@ public class TileManager : MonoBehaviour
         }
     }
 
-    private Vector3Int applyCellPosOffset(Vector3Int cellPos)
+    private Tuple<int, int> getMapArrayPos(Vector3Int cellPos)
     {
-        return cellPos + mTileOffset;
+        Vector3Int arrayCellPos = cellPos + mTileOffset;
+        return new Tuple<int, int>((int)arrayCellPos.x, (int)arrayCellPos.y);
     }
 
     public void ChangeGridState(GridState state)
