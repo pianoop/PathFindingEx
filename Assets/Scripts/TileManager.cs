@@ -24,11 +24,13 @@ public class TileManager : MonoBehaviour
     public GridState mouseGridState;
     [SerializeField] GridState mDefaultGridState;
     [SerializeField] Tilemap mTilemap;
+    [SerializeField] Tilemap mPreviewTilemap;
     [SerializeField] Vector3Int mTileOffset;
-    [SerializeField] List<Tile> tileList;
+    [SerializeField] List<Tile> mTileList;
 
     private List<List<GridState>> mMap;
-
+    private Vector3Int mLastChangedPreviewTilePos;
+    
     // List index = (int)GridState 
     private List<int> mTileUsageLimitList;
     private List<int> mTileUsageCounter;
@@ -79,19 +81,50 @@ public class TileManager : MonoBehaviour
     void Update()
     {
         processInputGridState();
-        processMouseInput();
+        processMouseClickInput();
+        processOnMouseInput();
     }
 
 // TODO: on mouse 시에 임시로 타일이 변경되는 것처럼 보이는 기능
 
-    private void processMouseInput()
+    private void processOnMouseInput()
+    {
+        Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        Vector3Int cellPos = mTilemap.WorldToCell(mouseWorldPos);
+        if (!cellPos.Equals(mLastChangedPreviewTilePos))
+        {
+            mPreviewTilemap.SetTile(mLastChangedPreviewTilePos, null);
+        }
+        
+        Tuple<int, int> arrayPos = getMapArrayPos(cellPos);
+        if (!isMouseInGrid(arrayPos))
+        {
+            return;
+        }
+
+        GridState nowGridState = mMap[arrayPos.Item1][arrayPos.Item2];
+        if (nowGridState == mouseGridState)
+        {
+            return;
+        }
+
+        if (!cellPos.Equals(mLastChangedPreviewTilePos))
+        {
+            mPreviewTilemap.SetTile(mLastChangedPreviewTilePos, null);
+        }
+        mLastChangedPreviewTilePos = cellPos;
+        mPreviewTilemap.SetTile(cellPos, mTileList[(int)mouseGridState]);
+        
+        
+    }
+    private void processMouseClickInput()
     {
         if (Input.GetMouseButtonDown(0))
         {
             Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            Vector3Int arrayCellPos = mTilemap.WorldToCell(mouseWorldPos);
+            Vector3Int cellPos = mTilemap.WorldToCell(mouseWorldPos);
 
-            setTile(arrayCellPos, mouseGridState);
+            setTile(cellPos, mouseGridState);
         }
     }
 
@@ -99,7 +132,7 @@ public class TileManager : MonoBehaviour
     {
         Tuple<int, int> arrayPos = getMapArrayPos(cellPos);
         GridState nowGridState = mMap[arrayPos.Item1][arrayPos.Item2];
-        if (nowGridState == newState)
+        if (!isMouseInGrid(arrayPos) || nowGridState == newState)
         {
             return;
         }
@@ -114,7 +147,7 @@ public class TileManager : MonoBehaviour
 
         mTileUsageCounter[(int)newState]++;
         mTilePositionList[(int)newState].Add(cellPos);
-        mTilemap.SetTile(cellPos, tileList[(int)newState]);
+        mTilemap.SetTile(cellPos, mTileList[(int)newState]);
         mMap[arrayPos.Item1][arrayPos.Item2] = newState;
     }
 
@@ -126,11 +159,11 @@ public class TileManager : MonoBehaviour
         }
         else if (Input.GetKeyDown(KeyCode.Alpha2))
         {
-            ChangeGridState(GridState.Wall);
+            ChangeGridState(GridState.Source);
         }
         else if (Input.GetKeyDown(KeyCode.Alpha3))
         {
-            ChangeGridState(GridState.Source);
+            ChangeGridState(GridState.Wall);
         }
         else if (Input.GetKeyDown(KeyCode.Alpha4))
         {
@@ -147,5 +180,10 @@ public class TileManager : MonoBehaviour
     public void ChangeGridState(GridState state)
     {
         mouseGridState = state;
+    }
+
+    private bool isMouseInGrid(Tuple<int, int> arrayPos)
+    {
+        return arrayPos.Item1 >= 0 && arrayPos.Item1 < TileMapSize.Item1 && arrayPos.Item2 >= 0 && arrayPos.Item2 < TileMapSize.Item2;
     }
 }
