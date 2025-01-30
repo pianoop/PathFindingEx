@@ -291,6 +291,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mouseGridState: 0
   mTilemap: {fileID: 1874863407}
+  mTileOffset: {x: 10, y: 10, z: 0}
+  tileList:
+  - {fileID: 11400000, guid: 0b813c7fa149a4349a60dfc1c3d44ac8, type: 2}
+  - {fileID: 11400000, guid: ca7ed7916560e8146893bb90111154f6, type: 2}
+  - {fileID: 11400000, guid: b99324be17b105645bc0b11b807609e1, type: 2}
+  - {fileID: 11400000, guid: db0636632b54fac4c8b410685bacec58, type: 2}
 --- !u!4 &1676213860
 Transform:
   m_ObjectHideFlags: 0

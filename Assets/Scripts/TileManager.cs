@@ -8,7 +8,6 @@ using Debug = UnityEngine.Debug;
 
 public class TileManager : MonoBehaviour
 {
-    
     public enum GridState
     {
         Path,
@@ -19,8 +18,18 @@ public class TileManager : MonoBehaviour
     
     public GridState mouseGridState;
     [SerializeField] Tilemap mTilemap;
-    [SerializeField] private Vector3Int mTileOffset = new Vector3Int(10, 10, 0); 
+    [SerializeField] Vector3Int mTileOffset = new Vector3Int(10, 10, 0); 
+    [SerializeField] List<Tile> tileList;
+    private List<int> mTileUsageLimitList;
 
+    void Start()
+    {
+        mTileUsageLimitList = new List<int>()
+        {
+            40, 1, 40, 1
+        };
+    }
+    
     void Update()
     {
         processInputGridState();
@@ -33,10 +42,11 @@ public class TileManager : MonoBehaviour
         {
             Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             Vector3Int cellPos = mTilemap.WorldToCell(mouseWorldPos);
-            cellPos = applyCellPosOffset(cellPos);
+            
+            mTilemap.SetTile(cellPos, tileList[(int)mouseGridState]);
         }
     }
-        
+    
     private void processInputGridState()
     {
         if (Input.GetKeyDown(KeyCode.Alpha1))
@@ -60,11 +70,6 @@ public class TileManager : MonoBehaviour
     private Vector3Int applyCellPosOffset(Vector3Int cellPos)
     {
         return cellPos + mTileOffset;
-    }
-    
-    public void SetGrid()
-    {
-        
     }
 
     public void ChangeGridState(GridState state)
