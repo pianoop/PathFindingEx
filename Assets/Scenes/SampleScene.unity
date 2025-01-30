@@ -286,17 +286,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 1676213858}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 19af9963153c5d24bab3112133eb92a7, type: 3}
+  m_Script: {fileID: 11500000, guid: dad307cc087b7574daa8ea3fafb46a15, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   mouseGridState: 0
   mTilemap: {fileID: 1874863407}
   mTileOffset: {x: 10, y: 10, z: 0}
-  tileList:
-  - {fileID: 11400000, guid: 0b813c7fa149a4349a60dfc1c3d44ac8, type: 2}
-  - {fileID: 11400000, guid: ca7ed7916560e8146893bb90111154f6, type: 2}
-  - {fileID: 11400000, guid: b99324be17b105645bc0b11b807609e1, type: 2}
-  - {fileID: 11400000, guid: db0636632b54fac4c8b410685bacec58, type: 2}
+  tileList: []
 --- !u!4 &1676213860
 Transform:
   m_ObjectHideFlags: 0
