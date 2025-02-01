@@ -7,11 +7,7 @@ using UnityEngine.Serialization;
 using UnityEngine.Tilemaps;
 using Debug = UnityEngine.Debug;
 
-public class TileManager : MonoBehaviour
-{
-    public Tuple<int, int> TileMapSize;
-
-    public enum GridState
+public enum GridState
     {
         Path,
         Source,
@@ -21,6 +17,12 @@ public class TileManager : MonoBehaviour
         Length
     }
 
+public class TileManager : MonoBehaviour
+{
+    public Tuple<int, int> TileMapSize;
+
+    
+
     public GridState mouseGridState;
     [SerializeField] GridState mDefaultGridState;
     [SerializeField] Tilemap mTilemap;
@@ -28,7 +30,7 @@ public class TileManager : MonoBehaviour
     [SerializeField] Vector3Int mTileOffset;
     [SerializeField] List<Tile> mTileList;
 
-    private List<List<GridState>> mMap;
+    private Dictionary<Vector3Int, DSLNode> mMap;
     private Vector3Int mLastChangedPreviewTilePos;
     
     // List index = (int)GridState 
@@ -41,13 +43,15 @@ public class TileManager : MonoBehaviour
         TileMapSize = new Tuple<int, int>(20, 20);
         mTileOffset = new Vector3Int(TileMapSize.Item1 / 2, TileMapSize.Item2 / 2, 0);
         mouseGridState = mDefaultGridState;
-        mMap = new List<List<GridState>>();
-        for (int i = 0; i < TileMapSize.Item1; i++)
+        mMap = new Dictionary<Vector3Int, DSLNode>();
+        int halfMapSizeX = TileMapSize.Item1 / 2;
+        int halfMapSizeY = TileMapSize.Item2 / 2;
+        for (int i = -halfMapSizeX; i < halfMapSizeX; i++)
         {
-            mMap.Add(new List<GridState>());
-            for (int j = 0; j < TileMapSize.Item2; j++)
+            for (int j = -halfMapSizeY; j < halfMapSizeY; j++)
             {
-                mMap[i].Add(mDefaultGridState);
+                DSLNode node = new DSLNode(new Vector3Int(i, j, 0), GridState.Path);
+                mMap.Add(new Vector3Int(i, j, 0), node);
             }
         }
 
@@ -95,23 +99,12 @@ public class TileManager : MonoBehaviour
         {
             mPreviewTilemap.SetTile(mLastChangedPreviewTilePos, null);
         }
-        
-        Tuple<int, int> arrayPos = getMapArrayPos(cellPos);
-        if (!isMouseInGrid(arrayPos))
+
+        if (!isMouseInGrid(cellPos))
         {
             return;
         }
 
-        GridState nowGridState = mMap[arrayPos.Item1][arrayPos.Item2];
-        if (nowGridState == mouseGridState)
-        {
-            return;
-        }
-
-        if (!cellPos.Equals(mLastChangedPreviewTilePos))
-        {
-            mPreviewTilemap.SetTile(mLastChangedPreviewTilePos, null);
-        }
         mLastChangedPreviewTilePos = cellPos;
         mPreviewTilemap.SetTile(cellPos, mTileList[(int)mouseGridState]);
         
@@ -119,10 +112,14 @@ public class TileManager : MonoBehaviour
     }
     private void processMouseClickInput()
     {
-        if (Input.GetMouseButtonDown(0))
+        if (Input.GetMouseButton(0))
         {
             Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             Vector3Int cellPos = mTilemap.WorldToCell(mouseWorldPos);
+            if (!isMouseInGrid(cellPos))
+            {
+                return;
+            }
 
             setTile(cellPos, mouseGridState);
         }
@@ -130,9 +127,8 @@ public class TileManager : MonoBehaviour
 
     private void setTile(Vector3Int cellPos, GridState newState)
     {
-        Tuple<int, int> arrayPos = getMapArrayPos(cellPos);
-        GridState nowGridState = mMap[arrayPos.Item1][arrayPos.Item2];
-        if (!isMouseInGrid(arrayPos) || nowGridState == newState)
+        GridState nowGridState = mMap[cellPos].NodeState;
+        if (!isMouseInGrid(cellPos) || nowGridState == newState)
         {
             return;
         }
@@ -148,7 +144,7 @@ public class TileManager : MonoBehaviour
         mTileUsageCounter[(int)newState]++;
         mTilePositionList[(int)newState].Add(cellPos);
         mTilemap.SetTile(cellPos, mTileList[(int)newState]);
-        mMap[arrayPos.Item1][arrayPos.Item2] = newState;
+        mMap[cellPos].NodeState = newState;
     }
 
     private void processInputGridState()
@@ -171,19 +167,15 @@ public class TileManager : MonoBehaviour
         }
     }
 
-    private Tuple<int, int> getMapArrayPos(Vector3Int cellPos)
-    {
-        Vector3Int arrayCellPos = cellPos + mTileOffset;
-        return new Tuple<int, int>((int)arrayCellPos.x, (int)arrayCellPos.y);
-    }
 
     public void ChangeGridState(GridState state)
     {
         mouseGridState = state;
     }
 
-    private bool isMouseInGrid(Tuple<int, int> arrayPos)
+    private bool isMouseInGrid(Vector3Int cellPos)
     {
-        return arrayPos.Item1 >= 0 && arrayPos.Item1 < TileMapSize.Item1 && arrayPos.Item2 >= 0 && arrayPos.Item2 < TileMapSize.Item2;
+        return cellPos.x >= -TileMapSize.Item1 / 2 && cellPos.x < TileMapSize.Item1 / 2 &&
+               cellPos.y >= -TileMapSize.Item2 / 2 && cellPos.y < TileMapSize.Item2 / 2;
     }
 }
