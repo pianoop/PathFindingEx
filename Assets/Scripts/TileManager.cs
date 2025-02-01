@@ -8,35 +8,40 @@ using UnityEngine.Tilemaps;
 using Debug = UnityEngine.Debug;
 
 public enum GridState
-    {
-        Path,
-        Source,
-        Wall,
-        Dest,
+{
+    Path,
+    Source,
+    Wall,
+    Dest,
 
-        Length
-    }
+    Length
+}
 
 public class TileManager : MonoBehaviour
 {
     public Tuple<int, int> TileMapSize;
 
-    
 
     public GridState mouseGridState;
     [SerializeField] GridState mDefaultGridState;
     [SerializeField] Tilemap mTilemap;
     [SerializeField] Tilemap mPreviewTilemap;
+    [SerializeField] Tilemap mPathfindingTilemap;
     [SerializeField] Vector3Int mTileOffset;
     [SerializeField] List<Tile> mTileList;
+    [SerializeField] List<Tile> mPreviewTileList;
+    [FormerlySerializedAs("EdgeTile")] [SerializeField] Tile mEdgeTile;
 
     private Dictionary<Vector3Int, DSLNode> mMap;
     private Vector3Int mLastChangedPreviewTilePos;
-    
+
     // List index = (int)GridState 
     private List<int> mTileUsageLimitList;
     private List<int> mTileUsageCounter;
     private List<List<Vector3Int>> mTilePositionList;
+
+    private DStarLite mDStarLite;
+    private AStar mAStar;
 
     void Start()
     {
@@ -73,23 +78,145 @@ public class TileManager : MonoBehaviour
         }
 
         mTileUsageCounter[(int)mDefaultGridState] = tileCount;
-        for (int i = 0; i < TileMapSize.Item1; i++)
+        for (int i = -halfMapSizeX; i < halfMapSizeX; i++)
         {
-            for (int j = 0; j < TileMapSize.Item2; j++)
+            for (int j = -halfMapSizeY; j < halfMapSizeY; j++)
             {
                 mTilePositionList[(int)mDefaultGridState].Add(new Vector3Int(i, j, 0));
             }
         }
+
+        temp();
     }
 
+    void temp()
+    {
+        // DSLNode startNode = new DSLNode(new Vector3Int(0, 0, 0), GridState.Source);
+        // DSLNode endNode = new DSLNode(new Vector3Int(1, 0, 0), GridState.Dest);
+        // Dictionary<DSLNode, List<DSLNode>> graph = new Dictionary<DSLNode, List<DSLNode>>();
+        // graph.Add(startNode, new List<DSLNode>(){endNode});
+        // graph.Add(endNode, new List<DSLNode>(){startNode});
+        //
+        // mDStarLite = new DStarLite(graph, startNode, endNode);
+        // mDStarLite.ComputeShortestPath();
+        // Debug.Log(mDStarLite.GetShortestPathCost());
+        // var path = mDStarLite.GetPath();
+        // foreach (var v in path)
+        // {
+        //     Debug.Log(v);
+        // }
+    }
+    
     void Update()
     {
         processInputGridState();
         processMouseClickInput();
         processOnMouseInput();
+        processPathfinding();
     }
 
-// TODO: on mouse 시에 임시로 타일이 변경되는 것처럼 보이는 기능
+    private void processPathfinding()
+    {
+        if (Input.GetKeyDown(KeyCode.Space) && canMakePathfinding())
+        {
+            // if (mDStarLite == null)
+            // {
+            //     Dictionary<DSLNode, List<DSLNode>> graph = getGraphFromMap();
+            //     DSLNode startNode = mMap[mTilePositionList[(int)GridState.Source][0]];
+            //     DSLNode endNode = mMap[mTilePositionList[(int)GridState.Dest][0]];
+            //     mDStarLite = new DStarLite(graph, startNode, endNode);
+            // }
+            //
+            // mDStarLite.ComputeShortestPath();
+            // Debug.Log(mDStarLite.GetShortestPathCost());
+            // var path = mDStarLite.GetPath();
+            // foreach (var v in path)
+            // {
+            //     Debug.Log(v);
+            // }
+
+            if (mDStarLite == null)
+            {
+                Dictionary<DSLNode, List<DSLNode>> graph = getGraphFromMap();
+                DSLNode startNode = mMap[mTilePositionList[(int)GridState.Source][0]];
+                DSLNode endNode = mMap[mTilePositionList[(int)GridState.Dest][0]];
+                mAStar = new AStar(graph, startNode, endNode);
+            }
+
+            DrawPathfinding(mAStar.ComputePath());
+        }
+    }
+
+    private void DrawPathfinding(List<Vector3Int> path)
+    {
+        mPathfindingTilemap.ClearAllTiles();
+        for(int i = 1; i < path.Count - 1; i++)
+        {
+            mPathfindingTilemap.SetTile(path[i], mEdgeTile);
+        }
+        
+    }
+
+    private bool canMakePathfinding()
+    {
+        return mTileUsageCounter[(int)GridState.Source] == 1 && mTileUsageCounter[(int)GridState.Dest] == 1;
+    }
+
+    private Dictionary<DSLNode, List<DSLNode>> getGraphFromMap()
+    {
+        Dictionary<DSLNode, List<DSLNode>> temp = new Dictionary<DSLNode, List<DSLNode>>();
+
+        int halfMapSizeX = TileMapSize.Item1 / 2;
+        int halfMapSizeY = TileMapSize.Item2 / 2;
+        foreach (DSLNode node in mMap.Values)
+        {
+            temp.Add(node, new List<DSLNode>());
+        }
+
+        for (int i = -halfMapSizeX; i < halfMapSizeX; i++)
+        {
+            for (int j = -halfMapSizeY; j < halfMapSizeY; j++)
+            {
+                DSLNode currentNode = mMap[new Vector3Int(i, j, 0)];
+                if (currentNode.NodeState == GridState.Wall)
+                {
+                    continue;
+                }
+
+                List<DSLNode> neighbors = getNeighbor(currentNode);
+                temp[currentNode].AddRange(neighbors);
+            }
+        }
+
+        return temp;
+    }
+
+    //Temp
+    private int[] mNextX = new int[4] { 1, -1, 0, 0 };
+    private int[] mNextY = new int[4] { 0, 0, -1, 1 };
+
+    private List<DSLNode> getNeighbor(DSLNode node)
+    {
+        List<DSLNode> neighbors = new List<DSLNode>();
+
+        for (int i = 0; i < mNextX.Length; i++)
+        {
+            int nextX = node.Pos.x + mNextX[i];
+            int nextY = node.Pos.y + mNextY[i];
+            if (!isCellInMap(new Vector3Int(nextX, nextY, 0)))
+            {
+                continue;
+            }
+
+            DSLNode neighbor = mMap[new Vector3Int(nextX, nextY, 0)];
+            if (neighbor.NodeState != GridState.Wall)
+            {
+                neighbors.Add(neighbor);
+            }
+        }
+
+        return neighbors;
+    }
 
     private void processOnMouseInput()
     {
@@ -100,23 +227,24 @@ public class TileManager : MonoBehaviour
             mPreviewTilemap.SetTile(mLastChangedPreviewTilePos, null);
         }
 
-        if (!isMouseInGrid(cellPos))
+        if (!isCellInMap(cellPos))
         {
             return;
         }
 
         mLastChangedPreviewTilePos = cellPos;
-        mPreviewTilemap.SetTile(cellPos, mTileList[(int)mouseGridState]);
-        
-        
+        mPreviewTilemap.SetTile(cellPos, mPreviewTileList[(int)mouseGridState]);
     }
+
     private void processMouseClickInput()
     {
         if (Input.GetMouseButton(0))
         {
+            mPathfindingTilemap.ClearAllTiles();
+            
             Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             Vector3Int cellPos = mTilemap.WorldToCell(mouseWorldPos);
-            if (!isMouseInGrid(cellPos))
+            if (!isCellInMap(cellPos))
             {
                 return;
             }
@@ -128,7 +256,7 @@ public class TileManager : MonoBehaviour
     private void setTile(Vector3Int cellPos, GridState newState)
     {
         GridState nowGridState = mMap[cellPos].NodeState;
-        if (!isMouseInGrid(cellPos) || nowGridState == newState)
+        if (!isCellInMap(cellPos) || nowGridState == newState)
         {
             return;
         }
@@ -173,7 +301,7 @@ public class TileManager : MonoBehaviour
         mouseGridState = state;
     }
 
-    private bool isMouseInGrid(Vector3Int cellPos)
+    private bool isCellInMap(Vector3Int cellPos)
     {
         return cellPos.x >= -TileMapSize.Item1 / 2 && cellPos.x < TileMapSize.Item1 / 2 &&
                cellPos.y >= -TileMapSize.Item2 / 2 && cellPos.y < TileMapSize.Item2 / 2;

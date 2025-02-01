@@ -21,4 +21,14 @@ public class DSLNode
         Rhs = Mathf.Infinity;
         NodeState = gridState;
     }
+    
+    public override bool Equals(object obj) {
+        if (obj == null || !(obj is DSLNode)) return false;
+        DSLNode other = (DSLNode)obj;
+        return Pos.Equals(other.Pos);
+    }
+
+    public override int GetHashCode() {
+        return Pos.GetHashCode();
+    }
 }
